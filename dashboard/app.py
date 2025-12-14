@@ -16,6 +16,9 @@ from dashboard.styling import apply_custom_css
 from dashboard.views.overview import render_overview
 from dashboard.views.peak_analysis import render_peak_analysis
 from dashboard.views.detailed_analytics import render_detailed_analytics
+from dashboard.views.churn_analysis import render_churn_analysis
+from dashboard.views.retention_strategy import render_retention_strategy
+from dashboard.views.actionable_conclusions import render_actionable_conclusions
 
 # --- APP CONFIGURATION ---
 st.set_page_config(
@@ -34,7 +37,7 @@ clients, transactions, portfolio = load_data()
 st.sidebar.title("Navegación")
 current_view = st.sidebar.radio(
     "Ir a:",
-    options=["Resumen Ejecutivo", "Análisis de Meses Pico", "Analítica Detallada"],
+    options=["Resumen Ejecutivo", "Análisis de Meses Pico", "Analítica Detallada", "Análisis de Churn", "Estrategia de Retención", "Conclusiones Accionables"],
     index=0
 )
 
@@ -84,3 +87,9 @@ elif current_view == "Análisis de Meses Pico":
     render_peak_analysis(clients, transactions, portfolio)
 elif current_view == "Analítica Detallada":
     render_detailed_analytics(clients, transactions, portfolio)
+elif current_view == "Análisis de Churn":
+    render_churn_analysis(clients, transactions, portfolio)
+elif current_view == "Estrategia de Retención":
+    render_retention_strategy(clients, transactions, portfolio)
+elif current_view == "Conclusiones Accionables":
+    render_actionable_conclusions(clients, transactions, portfolio)

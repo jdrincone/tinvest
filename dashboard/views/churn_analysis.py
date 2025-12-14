@@ -308,3 +308,7 @@ def render_churn_analysis(clients: pd.DataFrame, transactions: pd.DataFrame, por
     # Render chart
     fig_churn = plot_churn_profile_subplots(churn_data, filename="churn_01_perfil_clientes.html")
     st.plotly_chart(fig_churn, use_container_width=True)
+    
+    # Footer
+    st.markdown("---")
+    st.caption("Construido por Juan David Rincón")

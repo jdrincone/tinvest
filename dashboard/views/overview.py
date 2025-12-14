@@ -109,3 +109,7 @@ def render_overview(clients: pd.DataFrame, transactions: pd.DataFrame, portfolio
     fig = get_nnm_aum_plot(nnm_aum)
 
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Footer
+    st.markdown("---")
+    st.caption("Construido por Juan David Rincón")

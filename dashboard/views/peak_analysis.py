@@ -181,3 +181,7 @@ def render_peak_analysis(clients: pd.DataFrame, transactions: pd.DataFrame, port
         use_container_width=True,
         hide_index=True
     )
+    
+    # Footer
+    st.markdown("---")
+    st.caption("Construido por Juan David Rincón")

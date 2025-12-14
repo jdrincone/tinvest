@@ -14,6 +14,7 @@ if project_root not in sys.path:
 from dashboard.styling import format_currency
 from dashboard.charts import plot_heatmap, plot_stacked_bar_time_series, plot_horizontal_bar, plot_donut, plot_retention_efficiency
 
+
 @st.cache_data
 def calculate_advanced_metrics(transactions, clients, portfolio):
     # --- ANÁLISIS 1: PARETO & VIPs ---
@@ -268,6 +269,7 @@ def render_detailed_analytics(clients: pd.DataFrame, transactions: pd.DataFrame,
         )
         st.plotly_chart(fig_donut, use_container_width=True)
         
+
     with r3_col2:
         # Growth Opportunity Big Number
         st.markdown(
@@ -280,3 +282,11 @@ def render_detailed_analytics(clients: pd.DataFrame, transactions: pd.DataFrame,
             </div>
             """, unsafe_allow_html=True
         )
+
+    st.markdown("---")
+    
+    # Footer
+    st.caption("Construido por Juan David Rincón")
+
+
+
