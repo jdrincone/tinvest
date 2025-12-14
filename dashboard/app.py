@@ -12,7 +12,10 @@ if project_root not in sys.path:
 # Import modular components
 from dashboard.data_loader import load_data, filter_data
 from dashboard.styling import apply_custom_css
+# Import view modules
 from dashboard.views.overview import render_overview
+from dashboard.views.peak_analysis import render_peak_analysis
+from dashboard.views.detailed_analytics import render_detailed_analytics
 
 # --- APP CONFIGURATION ---
 st.set_page_config(
@@ -28,45 +31,56 @@ apply_custom_css()
 clients, transactions, portfolio = load_data()
 
 # --- SIDEBAR & NAVIGATION ---
+st.sidebar.title("Navegación")
+current_view = st.sidebar.radio(
+    "Ir a:",
+    options=["Resumen Ejecutivo", "Análisis de Meses Pico", "Analítica Detallada"],
+    index=0
+)
+
+st.sidebar.markdown("---")
 st.sidebar.title("Filtros")
 
-# Product Filter
-try:
-    available_products = sorted(portfolio["product"].unique())
-except AttributeError:
-    available_products = [] # Fallback if data loading fails
+# Render Filters ONLY for Overview (Peak Analysis has its own internal filter)
+if current_view == "Resumen Ejecutivo":
+    # Product Filter
+    try:
+        available_products = sorted(portfolio["product"].unique())
+    except AttributeError:
+        available_products = [] # Fallback if data loading fails
 
-selected_products = st.sidebar.multiselect(
-    "Producto",
-    options=available_products,
-    default=available_products
-)
+    selected_products = st.sidebar.multiselect(
+        "Producto",
+        options=available_products,
+        default=available_products
+    )
 
-# Client Type Filter
-try:
-    available_client_types = sorted(clients["client_type"].dropna().unique())
-except AttributeError:
-    available_client_types = []
+    # Client Type Filter
+    try:
+        available_client_types = sorted(clients["client_type"].dropna().unique())
+    except AttributeError:
+        available_client_types = []
 
-selected_client_types = st.sidebar.multiselect(
-    "Tipo de Cliente",
-    options=available_client_types,
-    default=available_client_types
-)
+    selected_client_types = st.sidebar.multiselect(
+        "Tipo de Cliente",
+        options=available_client_types,
+        default=available_client_types
+    )
+    
+    # Filter Data
+    filtered_clients, filtered_transactions, filtered_portfolio = filter_data(
+        clients, transactions, portfolio, 
+        products=selected_products, 
+        client_types=selected_client_types
+    )
 
-# --- FILTERING LOGIC ---
-filtered_clients, filtered_transactions, filtered_portfolio = filter_data(
-    clients, transactions, portfolio, 
-    products=selected_products, 
-    client_types=selected_client_types
-)
-
-# --- MAIN CONTENT ---
+# --- MAIN CONTENT ROUTING ---
 st.title("Tinvest Executive Dashboard")
 
-# Router Logic (Scalable Design)
-# Currently only one view, but structure allows easy addition:
-# view_selection = st.sidebar.radio("Navegación", ["Resumen Ejecutivo", "Detalle Clientes"])
-# if view_selection == "Resumen Ejecutivo": ...
-
-render_overview(filtered_clients, filtered_transactions, filtered_portfolio)
+if current_view == "Resumen Ejecutivo":
+    render_overview(filtered_clients, filtered_transactions, filtered_portfolio)
+elif current_view == "Análisis de Meses Pico":
+    # Peak Analysis uses raw data and filters internally by month
+    render_peak_analysis(clients, transactions, portfolio)
+elif current_view == "Analítica Detallada":
+    render_detailed_analytics(clients, transactions, portfolio)
