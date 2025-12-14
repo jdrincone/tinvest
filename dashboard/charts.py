@@ -1,5 +1,7 @@
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import sys
 import os
 
@@ -272,5 +274,222 @@ def plot_retention_efficiency(
         height=400,
         showlegend=False
     )
+    
+    return fig
+
+def plot_return_curve(
+    curve_data: pd.DataFrame,
+    candidate_days: tuple,
+    day_threshold: int,
+    target_return: float,
+    title: str = "Curva de Retorno (Latencia entre Transacciones)"
+) -> go.Figure:
+    """
+    Plots the probability of return within X days.
+    """
+    fig = go.Figure()
+    
+    # Main Curve
+    fig.add_trace(go.Scatter(
+        x=curve_data["days"],
+        y=curve_data["return_prob"],
+        mode='lines',
+        name='Prob. Retorno',
+        line=dict(color='#1A494C', width=3)
+    ))
+    
+    # Target Line
+    fig.add_hline(
+        y=target_return, 
+        line_dash="dash", 
+        line_color="gray", 
+        annotation_text=f"Target: {target_return:.0%}",
+        annotation_position="bottom right"
+    )
+    
+    # Threshold Line (Vertical)
+    fig.add_vline(
+        x=day_threshold,
+        line_dash="dot",
+        line_color="#E74C3C",
+        annotation_text=f"Umbral: {day_threshold} días",
+        annotation_position="top right"
+    )
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Días desde última transacción",
+        yaxis_title="Probabilidad Acumulada",
+        yaxis=dict(tickformat=".0%"),
+        template="plotly_white",
+        margin=dict(l=20, r=20, t=40, b=20),
+        height=450,
+        showlegend=False
+    )
+    
+    return fig
+
+def plot_balance_sensitivity(
+    sensitivity_df: pd.DataFrame,
+    title: str = "Sensibilidad de Saldo: Tasa de Inactividad por Bucket"
+) -> go.Figure:
+    """
+    Plots Inactivity Rate per Balance Bucket using a bar chart.
+    """
+    fig = go.Figure()
+
+    # Bar chart for Inactivity Rate
+    fig.add_trace(go.Bar(
+        x=sensitivity_df["balance_bucket"],
+        y=sensitivity_df["inactivity_rate"],
+        name="Tasa Inactividad",
+        marker_color="#F39C12",
+        text=sensitivity_df["inactivity_rate"].apply(lambda x: f"{x:.1%}"),
+        textposition='auto'
+    ))
+    
+    # Add count of users as line on secondary axis? Or just hover?
+    # Let's keep it simple with hover for users
+    fig.update_traces(
+        hovertemplate="<b>%{x}</b><br>Inactividad: %{y:.1%}<br>Usuarios: %{customdata}",
+        customdata=sensitivity_df["num_users"]
+    )
+
+    fig.update_layout(
+        title=title,
+        xaxis_title="Rango de Saldo",
+        yaxis_title="Tasa de Inactividad (%)",
+        yaxis=dict(tickformat=".0%"),
+        template="plotly_white",
+        margin=dict(l=20, r=20, t=40, b=20),
+        height=450
+    )
+    
+
+    return fig
+
+import scipy.stats as stats
+
+def plot_churn_profile_subplots(churn_data: dict, filename: str = None) -> go.Figure:
+    """
+    Creates a 2x2 subplot comparing Churn vs Retained clients on key metrics,
+    matching the exact layout from the reference notebook.
+    
+    Layout:
+    1. Income (Box)
+    2. Age (Density/KDE)
+    3. Risk Score (Violin)
+    4. Churn Rate by Segment (Bar)
+    """
+    df = churn_data["df"]
+    churn_by_segment = churn_data["churn_by_segment"] # Pre-calculated in data_loader
+    
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            "Poder adquisitivo: ¿quién se va?", 
+            "Edad: ¿estamos perdiendo a los jóvenes?", 
+            "Apetito de riesgo: ¿quién huye?", 
+            "Fuga por segmento de negocio"
+        ),
+        vertical_spacing=0.15,
+        horizontal_spacing=0.1,
+    )
+    
+    colors = {"Retenido": "#1A494C", "Churn": "#E4572E"} # Teal vs OrangeRed
+    
+    # --- 1. Income (Box Plot) ---
+    # Top-Left
+    for label, color in colors.items():
+        subset = df[df["churn_label"] == label]
+        fig.add_trace(go.Box(
+            y=subset["income_monthly"],
+            x=[label]*len(subset), # Group by label on X
+            name=label,
+            marker_color=color,
+            boxpoints=False, 
+            showlegend=True,
+            legendgroup=label
+        ), row=1, col=1)
+        
+    # --- 2. Age (Density Plot / KDE) ---
+    # Top-Right
+    x_range = np.linspace(df["age"].min(), df["age"].max(), 100)
+    
+    for label, color in colors.items():
+        subset = df[df["churn_label"] == label]
+        data = subset["age"].dropna()
+        if len(data) > 1:
+            kde = stats.gaussian_kde(data)
+            y_kde = kde(x_range)
+            
+            # Specific colors for KDE lines as per JSON (darker)
+            line_color = "#343A40" if label == "Retenido" else "#6C757D"
+            
+            fig.add_trace(go.Scatter(
+                x=x_range,
+                y=y_kde,
+                mode='lines',
+                name=label,
+                line=dict(color=line_color, width=2),
+                showlegend=False,
+                legendgroup=label
+            ), row=1, col=2)
+
+    # --- 3. Risk Score (Violin Plot) ---
+    # Bottom-Left
+    for label, color in colors.items():
+        subset = df[df["churn_label"] == label]
+        # Color specific for Violin in JSON was lighter? 
+        # "Retenido": "#F6B27A" (Orange-ish?), "Churn": "#E4572E"?
+        # Let's stick to main colors but add transparency or use violin specific 
+        fig.add_trace(go.Violin(
+            y=subset["risk_score"],
+            x=[label]*len(subset),
+            name=label,
+            # line_color=color,
+            fillcolor=color,
+            opacity=0.6,
+            meanline_visible=True,
+            showlegend=False,
+            legendgroup=label
+        ), row=2, col=1)
+
+    # --- 4. Churn Rate by Segment (Bar Chart) ---
+    # Bottom-Right
+    # Use churn_by_segment dataframe
+    # Expected cols: [segment_col, churn_rate, n_clients]
+    seg_col = churn_by_segment.columns[0] # segment or client_type
+    
+    fig.add_trace(go.Bar(
+        x=churn_by_segment[seg_col],
+        y=churn_by_segment["churn_rate"] * 100, # as percentage
+        name="Churn %",
+        marker_color="#17877D", # Teal-ish but distinct
+        text=churn_by_segment["churn_rate"].apply(lambda x: f"{x:.1%}"),
+        textposition="outside",
+        showlegend=False
+    ), row=2, col=2)
+    
+    # --- Layout Updates ---
+    fig.update_layout(
+        title_text="<b>Perfilamiento de clientes: churn vs retenidos</b>",
+        title_x=0.5,
+        template="plotly_white",
+        height=800,
+        margin=dict(l=60, r=40, t=90, b=40),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    # Axes Titles
+    fig.update_yaxes(title_text="Ingreso mensual (millones de COP)", row=1, col=1)
+    
+    fig.update_xaxes(title_text="Edad", row=1, col=2)
+    fig.update_yaxes(title_text="Densidad", row=1, col=2)
+    
+    fig.update_yaxes(title_text="Risk score", row=2, col=1)
+    
+    fig.update_xaxes(title_text="Segmento", row=2, col=2)
+    fig.update_yaxes(title_text="Tasa de churn (%)", row=2, col=2)
     
     return fig
